@@ -36,9 +36,19 @@ public:
 
 private:
     std::vector<IO *> m_SubIOs;
+    IO* m_InquireIO = nullptr;
+    IO* m_RemoteIO = nullptr;
+    IO* m_SmartCacheIO = nullptr;
+
     std::vector<Engine *> m_SubEngines;
+    Engine* m_InquireEngine = nullptr;
+    Engine* m_RemoteEngine = nullptr;
+    Engine* m_SmartCacheEngine = nullptr;
+
     std::shared_ptr<compress::CompressSirius> m_SiriusCompressor;
     int m_Tiers;
+
+    std::string m_Mode="file"; // file | daemon | inquirer 
 
 #define declare_type(T)                                                        \
     void DoGetSync(Variable<T> &, T *) final;                                  \

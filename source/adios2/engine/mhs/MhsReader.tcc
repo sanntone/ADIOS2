@@ -23,20 +23,28 @@ namespace engine
 template <class T>
 inline void MhsReader::GetSyncCommon(Variable<T> &variable, T *data)
 {
-    GetDeferredCommon(variable, data);
-    PerformGets();
+  GetDeferredCommon(variable, data);
+  PerformGets();
 }
 
 template <>
 inline void MhsReader::GetDeferredCommon(Variable<std::string> &variable,
                                          std::string *data)
 {
+  if(m_Mode == "file" || m_Mode == "daemon" )
+  {
     m_SubEngines[0]->Get(variable, data, Mode::Sync);
+  }
+  else
+  {
+  }
 }
 
 template <class T>
 void MhsReader::GetDeferredCommon(Variable<T> &variable, T *data)
 {
+  if(m_Mode == "file" || m_Mode == "daemon" )
+  {
     for (int i = 0; i < m_Tiers; ++i)
     {
         auto var = m_SubIOs[i]->InquireVariable<T>(variable.m_Name);
@@ -51,6 +59,54 @@ void MhsReader::GetDeferredCommon(Variable<T> &variable, T *data)
             break;
         }
     }
+  }
+  else
+  {
+    auto stepInquire = m_InquireIO->InquireVariable<int>("InquireStep");
+    auto varInquire = m_InquireIO->InquireVariable<char>("InquireVarName");
+    int inquire_step = CurrentStep();
+    m_InquireEngine->BeginStep();
+    varInquire->SetShape({variable.m_Name.size()});
+    
+    varInquire->SetSelection({{0},{variable.m_Name.size()}});
+    m_InquireEngine->Put(*stepInquire, &inquire_step);
+    m_InquireEngine->Put(*varInquire, variable.m_Name.c_str(), adios2::Mode::Sync);
+    m_InquireEngine->EndStep();
+    
+    auto status = m_RemoteEngine->BeginStep();
+
+   if (status == adios2::StepStatus::OK)
+    {
+      auto varRemote = m_RemoteIO->InquireVariable<T>(variable.m_Name);
+      varRemote->SetSelection({variable.m_Start, variable.m_Count});
+      m_RemoteEngine->Get<T>(*varRemote, data, adios2::Mode::Sync);
+      std::cout<<"\n varRemote :"<<variable.m_Name.c_str()<<", start: "<<variable.m_Start <<", count: "<<variable.m_Count<<std::endl;
+      
+      /** Write to new directory * */
+     
+      auto varSmartCache = m_SmartCacheIO->InquireVariable<T>(variable.m_Name.c_str());
+      std::string varSmartCacheName(variable.m_Name.c_str());
+
+     if(!varSmartCache){
+	int varRemoteDims = varRemote->Shape().size();
+	std::cout<<"\n========== name: "<<variable.m_Name<<", start: "<<variable.m_Start<<", count: "<<variable.m_Count <<std::endl;
+    	varSmartCache = &m_SmartCacheIO->DefineVariable<T>(varSmartCacheName, varRemote->Shape(),variable.m_Start, variable.m_Count);
+         
+      }
+
+      m_SmartCacheEngine->BeginStep();
+
+      if(varSmartCache){
+          
+         m_SmartCacheEngine->Put<T>(*varSmartCache, data, adios2::Mode::Sync);
+      	 m_SmartCacheEngine->EndStep();
+
+      } 
+      
+      m_RemoteEngine->EndStep();
+    }
+     
+  }
 }
 
 } // end namespace engine
