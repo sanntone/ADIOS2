@@ -100,7 +100,9 @@ MhsReader::MhsReader(IO &io, const std::string &name, const Mode mode,
     m_InquireIO->SetParameters({{"IPAddress", "127.0.0.1"}, {"Port", "12310"}});
 
     m_RemoteEngine = &m_RemoteIO->Open("stream", adios2::Mode::Write);
-    m_InquireEngine = &m_InquireIO->Open("stream", adios2::Mode::Read);
+   
+    m_InquireEngine = &m_InquireIO->Open("stream", adios2::Mode::ReadRandomAccess);
+    std::cout<<"********* InquireEngine Start **********"<<std::endl;
 
     /* after sendMeta */
    while (true)
@@ -111,16 +113,30 @@ MhsReader::MhsReader(IO &io, const std::string &name, const Mode mode,
             int inquire_step;
             auto varStep = m_InquireIO->InquireVariable<int>("InquireStep");
             auto varName= m_InquireIO->InquireVariable<char>("InquireVarName");
-            //std::cout<<"*********shape: "<<varName->Shape()[0]<<std::endl;
+      
+            auto varStart = m_InquireIO->InquireVariable<uint64_t>("InquireStart");
+            auto varCount = m_InquireIO->InquireVariable<uint64_t>("InquireCount");
+
             std::vector<char> inquire_var(varName->Shape()[0]);
+            std::vector<uint64_t> inquire_start(varStart->Shape()[0]-1);
+            std::vector<uint64_t> inquire_count(varCount->Shape()[0]-1);
 
             m_InquireEngine->Get(*varStep, &inquire_step);
             m_InquireEngine->Get(*varName, inquire_var.data(), adios2::Mode::Sync);
+            m_InquireEngine->Get(*varStart, inquire_start.data(), adios2::Mode::Sync);
+            m_InquireEngine->Get(*varCount, inquire_count.data(), adios2::Mode::Sync);
+            
             std::string received_varName(inquire_var.begin(), inquire_var.end());
-            std::cout<<"*********received_varName: "<<received_varName<<std::endl;
+            std::cout<<"\n******inquireName: "<<received_varName<<", step: "<<inquire_step<<", start: ";
+            for(auto a: inquire_start)
+                std::cout<<a<<" ";
 
-            const auto &vars = io.GetAvailableVariables();
-            std::cout << " ================ " << std::endl;
+            std::cout<<", count: ";
+            for(auto a: inquire_count)
+                std::cout<<a<<" ";
+            
+            /*const auto &vars = io.GetAvailableVariables();
+            std::cout << " \n================ " << std::endl;
             for(const auto &v: vars)
             {
               std::cout << "Variable : " << v.first << std::endl;
@@ -128,10 +144,9 @@ MhsReader::MhsReader(IO &io, const std::string &name, const Mode mode,
               {
                 std::cout << "    " << p.first << " : " << p.second << std::endl;
               }
-            }
+            }*/
 
             auto varFloats = io.InquireVariable<float>(received_varName);
-
             if(varFloats == nullptr)
             {
               std::cout << " ==========  no such variable : " <<  received_varName << std::endl;
@@ -150,13 +165,25 @@ MhsReader::MhsReader(IO &io, const std::string &name, const Mode mode,
               std::vector<float> myFloats(std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<size_t>()));
 
               varFloats->SetStepSelection({inquire_step,1});
-              //varFloatsRemote->SetSelection({varFloats->Start(),varFloats->Count()});
-              //varFloatsRemote->SetSelection({0,varFloats->Count()});
+             /*
+              int varDims =varFloats->Shape().size();
+              inquire_start.resize(varDims);
+              inquire_count.resize(varDims);
+              std::vector<size_t> new_start(inquire_start.begin(), inquire_start.end());
+              std::vector<size_t> new_count(inquire_count.begin(), inquire_count.end());
+              
+              varFloats->SetSelection({new_start, new_count});
+              */
+              std::vector<size_t> new_start(inquire_start.begin(), inquire_start.end());
+              std::vector<size_t> new_count(inquire_count.begin(), inquire_count.end());
+                varFloats->SetSelection({new_start, new_count});
+
               m_SubEngines[0]->Get(*varFloats, myFloats.data(), adios2::Mode::Sync);
 
               m_RemoteEngine->BeginStep();
 
               m_RemoteEngine->Put(*varFloatsRemote, myFloats.data(), adios2::Mode::Sync);
+              //m_RemoteEngine->Put(*varCurrentStep, &inquire_step);
 
               m_RemoteEngine->EndStep();
 
@@ -281,6 +308,8 @@ MhsReader::MhsReader(IO &io, const std::string &name, const Mode mode,
     
     auto stepInquire = m_InquireIO->DefineVariable<int>("InquireStep", {1},{0},{1});
     auto varInquire = m_InquireIO->DefineVariable<char>("InquireVarName", {8},{0},{8});
+    auto startInquire = m_InquireIO->DefineVariable<uint64_t>("InquireStart", {8},{0},{8});
+    auto countInquire = m_InquireIO->DefineVariable<uint64_t>("InquireCount", {8},{0},{8});
   }
   
 

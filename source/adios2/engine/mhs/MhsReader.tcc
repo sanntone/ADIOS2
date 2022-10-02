@@ -64,12 +64,33 @@ void MhsReader::GetDeferredCommon(Variable<T> &variable, T *data)
   {
     auto stepInquire = m_InquireIO->InquireVariable<int>("InquireStep");
     auto varInquire = m_InquireIO->InquireVariable<char>("InquireVarName");
-    int inquire_step = CurrentStep();
+    auto startInquire = m_InquireIO->InquireVariable<uint64_t>("InquireStart");
+    auto countInquire = m_InquireIO->InquireVariable<uint64_t>("InquireCount");
+
+    
+    int inquire_step = variable.m_StepsStart; //int inquire_step = CurrentStep();
+    
+    //std::cout<<"\n****** variable.step: "<<variable.m_StepsStart<<", start: "<< variable.m_Start<<", count: "<<variable.m_Count;
+    //std::cout<<"\n****** variable.start.size: "<< variable.m_Start.size()<<", count.size: "<<variable.m_Count.size();
+   
+    std::vector<uint64_t> inquire_start(variable.m_Start.begin(), variable.m_Start.end());
+    std::vector<uint64_t> inquire_count(variable.m_Count.begin(),variable.m_Count.end());
+    
     m_InquireEngine->BeginStep();
     varInquire->SetShape({variable.m_Name.size()});
+    startInquire->SetShape({variable.m_Start.size()+1});
+    countInquire->SetShape({variable.m_Count.size()+1});
+
     
     varInquire->SetSelection({{0},{variable.m_Name.size()}});
+    startInquire->SetSelection({{0},{variable.m_Start.size()}});
+    countInquire->SetSelection({{0},{variable.m_Count.size()}});
+    //startInquire->SetSelection({{0},{variable.m_Start.size()*sizeof(size_t)}});
+    //countInquire->SetSelection({{0},{variable.m_Count.size()*sizeof(size_t)}});
+
     m_InquireEngine->Put(*stepInquire, &inquire_step);
+    m_InquireEngine->Put(*startInquire, inquire_start.data(), adios2::Mode::Sync);
+    m_InquireEngine->Put(*countInquire, inquire_count.data(), adios2::Mode::Sync);
     m_InquireEngine->Put(*varInquire, variable.m_Name.c_str(), adios2::Mode::Sync);
     m_InquireEngine->EndStep();
     
@@ -80,7 +101,7 @@ void MhsReader::GetDeferredCommon(Variable<T> &variable, T *data)
       auto varRemote = m_RemoteIO->InquireVariable<T>(variable.m_Name);
       varRemote->SetSelection({variable.m_Start, variable.m_Count});
       m_RemoteEngine->Get<T>(*varRemote, data, adios2::Mode::Sync);
-      std::cout<<"\n varRemote :"<<variable.m_Name.c_str()<<", start: "<<variable.m_Start <<", count: "<<variable.m_Count<<std::endl;
+      std::cout<<"\nRequest :"<<variable.m_Name.c_str()<<", step"<<variable.m_StepsStart<<", start: "<<variable.m_Start <<", count: "<<variable.m_Count<<std::endl;
       
       /** Write to new directory * */
      
