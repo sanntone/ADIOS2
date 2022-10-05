@@ -77,7 +77,7 @@ MhsReader::MhsReader(IO &io, const std::string &name, const Mode mode,
 
     IO *metaIO = &m_IO.m_ADIOS.DeclareIO("metaIO");
     metaIO->SetEngine("DataMan");
-    metaIO->SetParameters({{"IPAddress", "127.0.0.1"}, {"Port", "12320"}});
+    metaIO->SetParameters({{"IPAddress", "10.0.0.31"}, {"Port", "9030"}});
     Engine *metaEngine = &metaIO->Open("metaStream", adios2::Mode::Write);
 
     auto varMeta1 = metaIO->DefineVariable<char>("varMeta1", {metaSize1}, {0}, {metaSize1});
@@ -96,8 +96,10 @@ MhsReader::MhsReader(IO &io, const std::string &name, const Mode mode,
     m_RemoteIO->SetEngine("DataMan");
     m_InquireIO->SetEngine("DataMan");
 
-    m_RemoteIO->SetParameters({{"IPAddress", "127.0.0.1"}, {"Port", "12300"}});
-    m_InquireIO->SetParameters({{"IPAddress", "127.0.0.1"}, {"Port", "12310"}});
+    //m_RemoteIO->SetParameters({{"IPAddress", "127.0.0.1"}, {"Port", "12300"}});
+    //m_InquireIO->SetParameters({{"IPAddress", "127.0.0.1"}, {"Port", "12310"}});
+    m_RemoteIO->SetParameters({{"IPAddress", "10.0.0.31"}, {"Port", "9010"}});
+    m_InquireIO->SetParameters({{"IPAddress", "10.0.0.31"}, {"Port", "9020"}});
 
     m_RemoteEngine = &m_RemoteIO->Open("stream", adios2::Mode::Write);
    
@@ -206,11 +208,12 @@ MhsReader::MhsReader(IO &io, const std::string &name, const Mode mode,
     std::string meta_dir = m_Name;
     IO* metaIO = &m_IO.m_ADIOS.DeclareIO("metaIO");
     metaIO->SetEngine("DataMan");
-    metaIO->SetParameters({{"IPAddress", "127.0.0.1"}, {"Port", "12320"}});
+    //metaIO->SetParameters({{"IPAddress", "127.0.0.1"}, {"Port", "12320"}});
+    metaIO->SetParameters({{"IPAddress", "10.0.0.31"}, {"Port", "9030"}});
     Engine* metaReader = &metaIO->Open("metaStream", adios2::Mode::Read);
 
     if (mkdir(meta_dir.c_str(), 0777) == -1){
-        //std::cerr << "Error :  " << strerror(errno) << std::endl;
+        std::cerr << "Error :  " << strerror(errno) << std::endl;
     }else{
         std::cout << "\nDirectory created";
     }
@@ -298,8 +301,8 @@ MhsReader::MhsReader(IO &io, const std::string &name, const Mode mode,
     m_InquireIO->SetEngine("DataMan");
     //m_SmartCacheIO->SetEngine("BP4");
 
-    m_RemoteIO->SetParameters({{"IPAddress", "127.0.0.1"}, {"Port", "12300"}});
-    m_InquireIO->SetParameters({{"IPAddress", "127.0.0.1"}, {"Port", "12310"}});
+    m_RemoteIO->SetParameters({{"IPAddress", "10.0.0.31"}, {"Port", "9010"}});
+    m_InquireIO->SetParameters({{"IPAddress", "10.0.0.31"}, {"Port", "9020"}});
 
     m_RemoteEngine = &m_RemoteIO->Open("Remote", adios2::Mode::Read);
     m_InquireEngine = &m_InquireIO->Open("Inquire", adios2::Mode::Write);
